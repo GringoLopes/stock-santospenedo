@@ -3,6 +3,7 @@ import { ClientEntity } from "../../domain/entities/client.entity"
 import { ID } from "@/src/shared/types/common"
 import { supabase } from "@/src/shared/infrastructure/database/supabase-wrapper"
 import { PaginatedResult, PaginationOptions } from "@/src/shared/types/pagination"
+import { SessionManager } from "@/src/shared/infrastructure/session/session-manager"
 
 // Estender o tipo de critérios de busca para incluir limit
 interface ExtendedClientSearchCriteria extends ClientSearchCriteria {
@@ -11,17 +12,49 @@ interface ExtendedClientSearchCriteria extends ClientSearchCriteria {
 
 export class SupabaseClientRepository implements ClientRepository {
   
+  private async getCurrentUserId(): Promise<ID> {
+    const user = SessionManager.getCurrentUser()
+    if (!user) {
+      throw new Error("User not authenticated")
+    }
+    return user.id
+  }
+
+  private async setCurrentUserInSession(): Promise<void> {
+    try {
+      const userId = await this.getCurrentUserId()
+      console.log("Setting user in RLS session:", userId)
+      
+      // NOVA ABORDAGEM: Como set_config não persiste no Supabase RPC,
+      // vamos usar filtros explícitos no código ao invés de RLS automático
+      console.log("RLS user configured:", userId)
+    } catch (error) {
+      console.error("Error setting user in session:", error)
+      throw new Error("Failed to set user session for RLS")
+    }
+  }
+  
   async findAll(options?: PaginationOptions): Promise<PaginatedResult<ClientEntity>> {
     try {
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
       const page = options?.page || 1
       const limit = options?.limit || 50
       const start = (page - 1) * limit
 
       const supabaseClient = await supabase.from("clients")
-      const { data, error, count } = await supabaseClient
+      let query = supabaseClient
         .select("*", { count: "exact" })
         .range(start, start + limit - 1)
         .order("client")
+
+      // Filtro por usuário (admin vê todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { data, error, count } = await query
 
       if (error) {
         console.error("Error fetching clients:", error)
@@ -58,8 +91,18 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async findById(id: string | number): Promise<ClientEntity | null> {
     try {
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
       const supabaseClient = await supabase.from("clients")
-      const { data, error } = await supabaseClient.select("*").eq("id", id).single()
+      let query = supabaseClient.select("*").eq("id", id)
+
+      // Filtro por usuário (admin vê todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { data, error } = await query.single()
 
       if (error || !data) {
         return null
@@ -74,15 +117,25 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async search(query: string, page = 1, pageSize = 50): Promise<{ data: ClientEntity[], total: number }> {
     try {
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
       const start = (page - 1) * pageSize;
       const supabaseClient = await supabase.from("clients")
 
       // Buscar por similaridade em múltiplos campos
-      const { data, error, count } = await supabaseClient
+      let searchQuery = supabaseClient
         .select("*", { count: "exact" })
         .or(`code.ilike.%${query}%,client.ilike.%${query}%,city.ilike.%${query}%,cnpj.ilike.%${query}%`)
         .range(start, start + pageSize - 1)
-        .order("client");
+        .order("client")
+
+      // Filtro por usuário (admin vê todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        searchQuery = searchQuery.eq('user_id', userId)
+      }
+
+      const { data, error, count } = await searchQuery
 
       if (error) {
         console.error("Error searching clients:", error)
@@ -101,11 +154,20 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async findByCode(code: string): Promise<ClientEntity | null> {
     try {
-      const { data, error } = await supabase
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
+      let query = supabase
         .from("clients")
         .select("*")
         .eq("code", code)
-        .single()
+
+      // Filtro por usuário (admin vê todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { data, error } = await query.single()
 
       if (error || !data) return null
 
@@ -118,11 +180,20 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async findByCnpj(cnpj: string): Promise<ClientEntity | null> {
     try {
-      const { data, error } = await supabase
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
+      let query = supabase
         .from("clients")
         .select("*")
         .eq("cnpj", cnpj)
-        .single()
+
+      // Filtro por usuário (admin vê todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { data, error } = await query.single()
 
       if (error || !data) return null
 
@@ -135,11 +206,21 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async findByCity(city: string): Promise<ClientEntity[]> {
     try {
-      const { data, error } = await supabase
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
+      let query = supabase
         .from("clients")
         .select("*")
         .ilike("city", `%${city}%`)
         .order("client")
+
+      // Filtro por usuário (admin vê todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { data, error } = await query
 
       if (error || !data) return []
 
@@ -152,15 +233,21 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async save(entity: ClientEntity): Promise<void> {
     try {
-      const { error } = await supabase.from("clients").upsert({
+      const userId = await this.getCurrentUserId()
+      
+      // Garantir que o cliente seja salvo com o user_id correto
+      const clientData = {
         id: entity.id,
         code: entity.code,
         client: entity.client,
         city: entity.city,
         cnpj: entity.cnpj,
+        user_id: entity.userId || userId, // Usar userId da entidade ou do usuário logado
         created_at: entity.createdAt.toISOString(),
         updated_at: entity.updatedAt?.toISOString() || new Date().toISOString(),
-      })
+      }
+
+      const { error } = await supabase.from("clients").upsert(clientData)
 
       if (error) {
         throw new Error(`Failed to save client: ${error.message}`)
@@ -173,10 +260,20 @@ export class SupabaseClientRepository implements ClientRepository {
 
   async delete(id: ID): Promise<void> {
     try {
-      const { error } = await supabase
+      const userId = await this.getCurrentUserId()
+      const currentUser = SessionManager.getCurrentUser()
+      
+      let query = supabase
         .from("clients")
         .delete()
         .eq("id", id)
+
+      // Filtro por usuário (admin pode deletar todos, usuário normal apenas os seus)
+      if (!currentUser?.is_admin) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { error } = await query
 
       if (error) {
         throw new Error(`Failed to delete client: ${error.message}`)
@@ -194,6 +291,7 @@ export class SupabaseClientRepository implements ClientRepository {
       client: data.client,
       city: data.city,
       cnpj: data.cnpj,
+      userId: data.user_id,
       createdAt: new Date(data.created_at),
       updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
     })

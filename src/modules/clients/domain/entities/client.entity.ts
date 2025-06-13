@@ -6,6 +6,7 @@ export interface Client {
   client: string
   city?: string
   cnpj?: string
+  userId: ID
   createdAt: Date
   updatedAt?: Date
 }
@@ -15,6 +16,7 @@ export class ClientEntity implements Client {
     public readonly id: ID,
     public readonly code: string,
     public readonly client: string,
+    public readonly userId: ID,
     public readonly createdAt: Date,
     public readonly updatedAt?: Date,
     public readonly city?: string,
@@ -30,6 +32,10 @@ export class ClientEntity implements Client {
 
     if (!this.client || this.client.trim().length === 0) {
       throw new Error("Client name cannot be empty")
+    }
+
+    if (!this.userId) {
+      throw new Error("Client must be associated with a user (userId required)")
     }
 
     if (this.cnpj && !this.isValidCnpj(this.cnpj)) {
@@ -54,6 +60,7 @@ export class ClientEntity implements Client {
     id: ID
     code: string
     client: string
+    userId: ID
     createdAt: Date
     updatedAt?: Date
     city?: string
@@ -63,6 +70,7 @@ export class ClientEntity implements Client {
       props.id,
       props.code.trim().toUpperCase(),
       props.client.trim().toUpperCase(),
+      props.userId,
       props.createdAt,
       props.updatedAt,
       props.city?.trim().toUpperCase(),
@@ -107,5 +115,13 @@ export class ClientEntity implements Client {
 
   isActive(): boolean {
     return true // Por enquanto, todos os clientes são considerados ativos
+  }
+
+  belongsToUser(userId: ID): boolean {
+    return this.userId === userId
+  }
+
+  getUserOwnership(): ID {
+    return this.userId
   }
 }

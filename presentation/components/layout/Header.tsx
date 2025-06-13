@@ -12,14 +12,14 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/src/shared/presentation/lib/utils"
 import { useAuth } from "@/src/modules/auth/presentation/providers/auth.provider"
-import { LogOut, Menu, Package, Search, Upload, User } from "lucide-react"
+import { LogOut, Menu, Package, Search, Upload, User, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 
 const menuItems = [
   {
-    title: "Consultar Produtos",
+    title: "Produtos",
     href: "/products",
     icon: Search,
     adminOnly: false
@@ -29,7 +29,19 @@ const menuItems = [
     href: "/products/import",
     icon: Upload,
     adminOnly: true
-  },  
+  },
+  {
+    title: "Clientes",
+    href: "/clients",
+    icon: Users,
+    adminOnly: false
+  },
+  {
+    title: "Importar Clientes",
+    href: "/clients/import",
+    icon: Upload,
+    adminOnly: true
+  },
 ]
 
 export function Header() {
