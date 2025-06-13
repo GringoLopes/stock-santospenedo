@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EquivalenceCSVImport } from "@/presentation/components/products/EquivalenceCSVImport"
 import { ProductCSVImport } from "@/presentation/components/products/ProductCSVImport"
+import { ClientCSVImport } from "@/src/modules/clients/presentation/components/ClientCSVImport"
 import { useAuth } from "@/src/modules/auth/presentation/providers/auth.provider"
-import { ArrowRightLeft, FileText, Info } from "lucide-react"
+import { ArrowRightLeft, FileText, Info, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
@@ -28,7 +29,7 @@ export default function ImportPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Importar Dados</h1>
-        <p className="text-gray-600 mt-2">Importe produtos e equivalências em massa usando diferentes formatos</p>
+        <p className="text-gray-600 mt-2">Importe produtos, clientes e equivalências em massa usando diferentes formatos</p>
       </div>
 
       <Alert className="mb-6">
@@ -40,11 +41,15 @@ export default function ImportPage() {
       </Alert>
 
       <Tabs defaultValue="csv-semicolon" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="csv-semicolon" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Produtos CSV (;)
-          </TabsTrigger>          
+          </TabsTrigger>
+          <TabsTrigger value="clients" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Clientes
+          </TabsTrigger>
           <TabsTrigger value="equivalences" className="flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4" />
             Equivalências
@@ -66,18 +71,19 @@ export default function ImportPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="csv" className="space-y-4">
+        <TabsContent value="clients" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Importação CSV Tradicional</CardTitle>
+              <CardTitle>Importação de Clientes</CardTitle>
               <CardDescription>
-                Para arquivos CSV com separador vírgula (,). Ideal para importações de até 1.000 produtos.
+                Importe clientes e vincule-os a usuários específicos. Formato: Código;Nome;Cidade;CNPJ
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <ClientCSVImport />
             </CardContent>
           </Card>
-        </TabsContent>  
+        </TabsContent>
 
         <TabsContent value="equivalences" className="space-y-4">
           <Card>

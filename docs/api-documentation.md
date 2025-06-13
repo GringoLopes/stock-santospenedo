@@ -155,6 +155,56 @@ Importa produtos a partir de comandos SQL INSERT.
 }
 ```
 
+## 👥 Endpoints de Clientes
+
+### POST /api/clients/import
+Importa clientes em massa com vinculação a usuários específicos.
+
+#### Request Body
+```json
+{
+  "clients": [
+    {
+      "code": "001",
+      "client": "CLIENTE EXEMPLO LTDA",
+      "city": "SAO PAULO",
+      "cnpj": "12345678000195",
+      "user_id": "uuid-do-usuario"
+    }
+  ]
+}
+```
+
+#### Response
+```json
+{
+  "success": true,
+  "count": 1,
+  "message": "1 clientes importados com sucesso",
+  "totalProcessed": 1,
+  "errors": []
+}
+```
+
+#### Validações
+- **code**: Obrigatório, máximo 20 caracteres, único no sistema
+- **client**: Obrigatório, máximo 255 caracteres
+- **city**: Obrigatório, máximo 100 caracteres
+- **cnpj**: Opcional, exatamente 14 dígitos numéricos, único
+- **user_id**: Obrigatório, deve referenciar usuário ativo
+
+#### Funcionalidades Especiais
+- **Verificação de duplicatas**: Códigos e CNPJs únicos no banco
+- **Vinculação obrigatória**: Cada cliente deve ter um usuário responsável
+- **Validação de CNPJ**: 14 dígitos, não pode ser sequência repetida
+- **Processamento em lotes**: Lotes de 500 clientes para performance
+
+#### Tratamento de Erros Específicos
+- **Códigos duplicados no banco**: HTTP 409 Conflict
+- **CNPJs duplicados no banco**: HTTP 409 Conflict  
+- **Usuário inexistente**: HTTP 400 Bad Request
+- **Campos obrigatórios vazios**: HTTP 400 Bad Request
+
 ## 🔄 Endpoints de Equivalências
 
 ### POST /api/equivalences/import
@@ -203,6 +253,20 @@ interface Product {
   stock: number           // Quantidade em estoque (0-2,147,483,647)
   price: number           // Preço (0.00-99,999,999.99)
   application?: string    // Aplicação/uso do produto
+  created_at: string      // ISO DateTime
+  updated_at: string      // ISO DateTime
+}
+```
+
+### Client
+```typescript
+interface Client {
+  id: string | number
+  code: string            // Código único do cliente (máx 20 chars)
+  client: string          // Nome do cliente (máx 255 chars)
+  city: string            // Cidade (máx 100 chars)
+  cnpj?: string | null    // CNPJ - 14 dígitos numéricos (opcional)
+  user_id: string         // UUID do usuário responsável
   created_at: string      // ISO DateTime
   updated_at: string      // ISO DateTime
 }
@@ -297,6 +361,28 @@ const response = await fetch('/api/products/bulk-import', {
 })
 ```
 
+### Importar Clientes
+```javascript
+const response = await fetch('/api/clients/import', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    clients: [
+      {
+        code: '001',
+        client: 'EMPRESA EXEMPLO LTDA',
+        city: 'SAO PAULO',
+        cnpj: '12345678000195',
+        user_id: 'uuid-do-usuario-responsavel'
+      }
+    ]
+  })
+})
+```
+
 ### Importar Equivalências
 ```javascript
 const response = await fetch('/api/equivalences/import', {
@@ -330,6 +416,22 @@ curl -X POST http://localhost:3000/api/products/import \
         "product": "Teste API",
         "stock": 1,
         "price": 1.00
+      }
+    ]
+  }'
+
+# Importar clientes
+curl -X POST http://localhost:3000/api/clients/import \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '{
+    "clients": [
+      {
+        "code": "001",
+        "client": "CLIENTE TESTE API",
+        "city": "SAO PAULO",
+        "cnpj": "12345678000195",
+        "user_id": "uuid-do-usuario"
       }
     ]
   }'
@@ -396,7 +498,12 @@ const rateLimit = {
 
 ### Códigos de Erro Customizados
 - `INVALID_PRODUCT_DATA`: Dados de produto inválidos
+- `INVALID_CLIENT_DATA`: Dados de cliente inválidos
 - `DUPLICATE_PRODUCT`: Produto duplicado
+- `DUPLICATE_CLIENT_CODE`: Código de cliente duplicado
+- `DUPLICATE_CLIENT_CNPJ`: CNPJ de cliente duplicado
 - `INVALID_SQL_COMMAND`: Comando SQL inválido
 - `BATCH_PROCESSING_ERROR`: Erro no processamento em lote
 - `VALIDATION_ERROR`: Erro de validação de dados
+- `USER_NOT_FOUND`: Usuário responsável não encontrado
+- `INVALID_CNPJ_FORMAT`: Formato de CNPJ inválido

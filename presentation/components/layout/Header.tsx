@@ -25,20 +25,14 @@ const menuItems = [
     adminOnly: false
   },
   {
-    title: "Importar Produtos",
-    href: "/products/import",
-    icon: Upload,
-    adminOnly: true
-  },
-  {
     title: "Clientes",
     href: "/clients",
     icon: Users,
     adminOnly: false
   },
   {
-    title: "Importar Clientes",
-    href: "/clients/import",
+    title: "Importar Dados",
+    href: "/products/import",
     icon: Upload,
     adminOnly: true
   },
